@@ -57,9 +57,25 @@ const buildAsteroidObject = map => {
 }
 
 const buildLine = (coord1, coord2) => {
-	let slope = (coord2[1] - coord1[1]) / (coord2[0] - coord1[0]);
-	let yInt = coord2[1] - slope * coord2[0];
-	return {slope, yInt};
+	if (coord1[0] === coord2[0] && coord1[1] === coord2[1]) {
+		return '1';
+	} else {
+		let slope = (coord2[1] - coord1[1]) / (coord2[0] - coord1[0]);
+		let yInt = coord2[1] - slope * coord2[0];
+		return `y=${slope}x+${yInt}`;
+	}
+}
+
+const isAdjacent = (coord1, coord2) => {
+	if (coord1[0] === coord2[0] && Math.abs(coord1[1] - coord2[1]) === 1) {
+		return true;
+	} else if (coord1[1] === coord2[1] && Math.abs(coord1[0] - coord2[0]) === 1) {
+		return true;
+	} else if (Math.abs(coord1[0] - coord2[0]) && Math.abs(coord1[1] - coord2[1])) {
+		return true;
+	} else if (Math.abs(coord1[1] - coord2[1]) && Math.abs(coord1[0] - coord2[0])) {
+		return true;
+	} return false;
 }
 
 const countVisibleAsteroids = async () => {
@@ -67,16 +83,39 @@ const countVisibleAsteroids = async () => {
 	let input = testArray1;
 	let map = buildMap(input);
 	let asteroidArray = buildAsteroidObject(map);
+	let maxVisible = 0;
+	let bestOption = null;
 
 	for (let i = 0; i < asteroidArray.length; i++) {
+		let visibleAsteroids = 0;
+		let lineArray = [];
+		let visibleArray = [];
+		// loop once to tally up all adjacent asteroids
 		for (let j = 0; j < asteroidArray.length; j++) {
-			// draw a line between current asteroid and target asteroid
-			let lineObj = buildLine(asteroidArray[i].coordinates, asteroidArray[j].coordinates);
-			console.log('line object', lineObj);
-
-			// if any other asteroids are on this line
+			if (isAdjacent(asteroidArray[i].coordinates, asteroidArray[j].coordinates)) {
+				let lineStr = buildLine(asteroidArray[i].coordinates, asteroidArray[j].coordinates);
+				lineArray.push(lineStr);
+				visibleArray.push(`(${asteroidArray[j].coordinates})`);
+				visibleAsteroids++;
+			}
 		}
+		// loop through again to check if any other asteroids are visible
+		for (let k = 0; k < asteroidArray.length; k++) {
+			let lineStr = buildLine(asteroidArray[i].coordinates, asteroidArray[k].coordinates);
+			if (!visibleArray.includes(`${asteroidArray[k].coordinates}`) && !lineArray.includes(lineStr) && asteroidArray[i].coordinates !== asteroidArray[k].coordinates) {
+				lineArray.push(lineStr);
+				visibleArray.push(`${asteroidArray[k].coordinates}`);
+				visibleAsteroids++;
+			}
+		}
+		asteroidArray[i].asteroidsVisible = visibleAsteroids;
+		if (visibleAsteroids > maxVisible) {
+			maxVisible = visibleAsteroids;
+			bestOption = asteroidArray[i].coordinates;
+		}
+		console.log(`asteroid at ${asteroidArray[i].coordinates} can see ${visibleAsteroids} asteroids: ${visibleArray} with equations ${lineArray}`);
 	}
+	console.log(`best option is at ${bestOption} where ${maxVisible} asteroids are visible.`);
 
 };
 
