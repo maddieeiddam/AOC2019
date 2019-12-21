@@ -91,13 +91,15 @@ class intcodeComputer {
 
 }
 
-const runProgram = async (input) => {
+const getDiagnosticCode = async (systemID) => {
   const programStr = await fs.readFile(path.join(__dirname, 'input.txt'), 'utf8');
   const program = programStr.split(',').map(Number);
 
-  const computer = new intcodeComputer(program, input);
+  const computer = new intcodeComputer(program, systemID);
   const output = computer.output;
-  console.log('output', output);
+  return output[output.length - 1];
 };
 
-runProgram(5);
+getDiagnosticCode(1).then(function(solution) {
+  console.log('solution:', solution);
+})
