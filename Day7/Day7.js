@@ -2,18 +2,16 @@
 const fs = require('fs-extra');
 const path = require('path');
 
-const getInputArray = async () => {
-  const input = await fs.readFile(path.join(__dirname, 'input.txt'), 'utf8');
-  return input.split(',').map(Number);
-};
-
 class intcodeComputer {
-  constructor(input) {
+  constructor(program, phase, input) {
+  	this.phase = phase;
     this.input = input;
+    this.codeArray = program;
+    this.outputArray = [];
   }
 
   get output() {
-    return this.aggregateOutput();
+    return this.runAmplifier();
   }
 
   parseInstruction(int) {
@@ -31,71 +29,85 @@ class intcodeComputer {
     }
   }
 
-  operateAndReplace(array, param1, param2, opcode, address) {
-    array[address] = opcode === 1 ? param1 + param2 : param1 * param2;
-    return array;
+  operateAndReplace(param1, param2, opcode, address) {
+    this.codeArray[address] = opcode === 1 ? param1 + param2 : param1 * param2;
   }
 
-  parseIntcode(pointer, input, codeArray, outputArray) {
-    let opcodeObj = this.parseInstruction(codeArray[pointer]);
+  parseIntcode(pointer, input, outputArray) {
+    let opcodeObj = this.parseInstruction(this.codeArray[pointer]);
     switch (opcodeObj.opcode) {
       case 99:
-        return outputArray;
+        return this.outputArray;
       case 3:
-        codeArray[codeArray[pointer + 1]] = input;
-        return this.parseIntcode(pointer + 2, input, codeArray, outputArray);
+        this.codeArray[this.codeArray[pointer + 1]] = input;
+        return this.parseIntcode(pointer + 2, input, outputArray);
       case 4: {
-        let output = opcodeObj.mode1 === 0 ? codeArray[codeArray[pointer + 1]] : codeArray[pointer + 1];
-        outputArray.push(output);
-        return this.parseIntcode(pointer + 2, input, codeArray, outputArray);
+        let output = opcodeObj.mode1 === 0 ? this.codeArray[this.codeArray[pointer + 1]] : this.codeArray[pointer + 1];
+        this.outputArray.push(output);
+        return this.parseIntcode(pointer + 2, input, outputArray);
       }
       case 5: {
         let nextPointer = pointer + 3;
-        let firstArg = opcodeObj.mode1 === 0 ? codeArray[codeArray[pointer + 1]] : codeArray[pointer + 1];
+        let firstArg = opcodeObj.mode1 === 0 ? this.codeArray[this.codeArray[pointer + 1]] : this.codeArray[pointer + 1];
         if (firstArg !== 0) {
-          nextPointer = opcodeObj.mode2 === 0 ? codeArray[codeArray[pointer + 2]] : codeArray[pointer + 2];
+          nextPointer = opcodeObj.mode2 === 0 ? this.codeArray[this.codeArray[pointer + 2]] : this.codeArray[pointer + 2];
         }
-        return this.parseIntcode(nextPointer, input, codeArray, outputArray);
+        return this.parseIntcode(nextPointer, input, outputArray);
       }
       case 6: {
         let nextPointer = pointer + 3;
-        let firstArg = opcodeObj.mode1 === 0 ? codeArray[codeArray[pointer + 1]] : codeArray[pointer + 1];
+        let firstArg = opcodeObj.mode1 === 0 ? this.codeArray[this.codeArray[pointer + 1]] : this.codeArray[pointer + 1];
         if (firstArg === 0) {
-          nextPointer = opcodeObj.mode2 === 0 ? codeArray[codeArray[pointer + 2]] : codeArray[pointer + 2];
+          nextPointer = opcodeObj.mode2 === 0 ? this.codeArray[this.codeArray[pointer + 2]] : this.codeArray[pointer + 2];
         }
-        return this.parseIntcode(nextPointer, input, codeArray, outputArray);
+        return this.parseIntcode(nextPointer, input, outputArray);
       }
       case 7: {
-        let num1 = opcodeObj.mode1 === 0 ? codeArray[codeArray[pointer + 1]] : codeArray[pointer + 1];
-        let num2 = opcodeObj.mode2 === 0 ? codeArray[codeArray[pointer + 2]] : codeArray[pointer + 2];
-        num1 < num2 ? codeArray[codeArray[pointer + 3]] = 1 : codeArray[codeArray[pointer + 3]] = 0;
-        return this.parseIntcode(pointer + 4, input, codeArray, outputArray);
+        let num1 = opcodeObj.mode1 === 0 ? this.codeArray[this.codeArray[pointer + 1]] : this.codeArray[pointer + 1];
+        let num2 = opcodeObj.mode2 === 0 ? this.codeArray[this.codeArray[pointer + 2]] : this.codeArray[pointer + 2];
+        num1 < num2 ? this.codeArray[this.codeArray[pointer + 3]] = 1 : this.codeArray[this.codeArray[pointer + 3]] = 0;
+        return this.parseIntcode(pointer + 4, input, outputArray);
       }
       case 8: {
-        let num1 = opcodeObj.mode1 === 0 ? codeArray[codeArray[pointer + 1]] : codeArray[pointer + 1];
-        let num2 = opcodeObj.mode2 === 0 ? codeArray[codeArray[pointer + 2]] : codeArray[pointer + 2];
-        num1 === num2 ? codeArray[codeArray[pointer + 3]] = 1 : codeArray[codeArray[pointer + 3]] = 0;
-        return this.parseIntcode(pointer + 4, input, codeArray, outputArray);
+        let num1 = opcodeObj.mode1 === 0 ? this.codeArray[this.codeArray[pointer + 1]] : this.codeArray[pointer + 1];
+        let num2 = opcodeObj.mode2 === 0 ? this.codeArray[this.codeArray[pointer + 2]] : this.codeArray[pointer + 2];
+        num1 === num2 ? this.codeArray[this.codeArray[pointer + 3]] = 1 : this.codeArray[this.codeArray[pointer + 3]] = 0;
+        return this.parseIntcode(pointer + 4, input, outputArray);
       }
       default: {
-        let param1 = opcodeObj.mode1 === 0 ? codeArray[codeArray[pointer + 1]] : codeArray[pointer + 1];
-        let param2 = opcodeObj.mode2 === 0 ? codeArray[codeArray[pointer + 2]] : codeArray[pointer + 2];
-        let address =  codeArray[pointer + 3];
-        let newArray = this.operateAndReplace(codeArray, param1, param2, opcodeObj.opcode, address);
-        return this.parseIntcode(pointer + 4, input, newArray, outputArray);
+        let param1 = opcodeObj.mode1 === 0 ? this.codeArray[this.codeArray[pointer + 1]] : this.codeArray[pointer + 1];
+        let param2 = opcodeObj.mode2 === 0 ? this.codeArray[this.codeArray[pointer + 2]] : this.codeArray[pointer + 2];
+        let address =  this.codeArray[pointer + 3];
+        this.operateAndReplace(param1, param2, opcodeObj.opcode, address);
+        this.parseIntcode(pointer + 4, input, outputArray);
       }
     }
   }
 
-  async aggregateOutput() {
-    const inputArray = await getInputArray();
-    // const inputArray = [3,15,3,16,1002,16,10,16,1,16,15,15,4,15,99,0,0];
-    let output = this.parseIntcode(0, 1, inputArray, []);
-    return output;
+  runAmplifier() {
+    const output1 = this.parseIntcode(0, this.phase, []);
+    console.log('output1', output1);
+    const output2 = this.parseIntcode(0, this.input, []);
+    console.log('output2', output2);
+    return this.outputArray;
   }
 
 
 }
+
+const getOutputSignal = async (phaseSetting, inputInstruction) => {
+  // const programStr = await fs.readFile(path.join(__dirname, 'input.txt'), 'utf8');
+  // const program = programStr.split(',').map(Number);
+  const program = [3,15,3,16,1002,16,10,16,1,16,15,15,4,15,99,0,0];
+
+  const computer = new intcodeComputer(program, phaseSetting, inputInstruction);
+  const output = computer.output;
+  return output[output.length - 1];
+};
+
+getOutputSignal(4, 0).then(function(solution) {
+  console.log('solution:', solution);
+})
 
 const computer = new intcodeComputer(5);
 const output = computer.output;
